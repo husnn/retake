@@ -1,13 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  swcMinify: true,
-  experimental: {
-    transpilePackages: ['@retake/shared']
-  },
-  compiler: {
-    styledComponents: true
-  }
-}
+  transpilePackages: ['@retake/shared']
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

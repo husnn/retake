@@ -1,10 +1,10 @@
 import { assignIfNotNull } from './utils';
 
 export class CurrentUserDTO {
-  id: string;
+  id?: string;
   firstName?: string;
   lastName?: string;
-  email: string;
+  email?: string;
 
   constructor(data: Partial<CurrentUserDTO>) {
     this.id = data.id;
