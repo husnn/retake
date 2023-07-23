@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./packages",
+    "paths": {
+      "@retake/shared": ["./shared/src"],
+      "@retake/logger": ["./logger/src"],
+      "@retake/core": ["./core/src"],
+      "@retake/postgres": ["./postgres/src"]
+    }
+  }
+}
