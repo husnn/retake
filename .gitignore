@@ -50,3 +50,8 @@ yarn.lock
 !.env.test
 
 *.sqlite
+
+# Python
+.venv
+__pycache__
+runtime
