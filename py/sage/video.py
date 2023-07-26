@@ -1,6 +1,5 @@
 import cv2
 import ffmpeg
-import math
 import numpy as np
 import pandas as pd
 import shutil
@@ -12,6 +11,7 @@ from deepface.commons import distance
 
 import config
 
+
 @dataclass
 class Video:
   src: str
@@ -19,10 +19,22 @@ class Video:
   height: int
   duration_ms: int
 
+def extract_audio(src: str, dst: str):
+  ffmpeg \
+      .input(src) \
+      .output(dst, format='wav', acodec='pcm_s16le', ac=1, ar='16k') \
+      .overwrite_output() \
+      .run()
+  
 def downscale(video: Video, dst: str, size_px: int):
    w = None
    h = None
 
+   # Video is already of the desired resoultion.
+   if max(video.width, video.height) == size_px:
+      shutil.copy(video.src, dst)
+      return
+   
    # Scale whilst maintaining aspect ratio.
    # The larger side will have the specified pixel size.
    if video.width > video.height:
@@ -32,9 +44,28 @@ def downscale(video: Video, dst: str, size_px: int):
       w = -2
       h = size_px
 
-   # Video is already of the desired resoultion.
-   if w == size_px or h == size_px:
-      shutil.copy(video.src, dst)
+   if config.CUDA_AVAILABLE:
+      cmd = [
+         "ffmpeg",
+         "-y",
+         "-hwaccel",
+         "cuda",
+         "-i",
+         video.src,
+         "-vf",
+         f"scale={w}:{h}",
+         "-c:a",
+         "copy",
+         "-c:v",
+         "h264_nvenc",
+         dst
+      ]
+
+      result = subprocess.run(cmd, stderr=subprocess.PIPE)
+
+      if result.returncode != 0:
+         raise Exception(result.stderr)
+      
       return
 
    v = ffmpeg.input(video.src) \

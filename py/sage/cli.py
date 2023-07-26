@@ -1,5 +1,7 @@
 from argparse import ArgumentParser
+
 from main import process_video
+
 
 parser = ArgumentParser()
 parser.add_argument("-id", required=True)

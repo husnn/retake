@@ -1,9 +1,12 @@
-import config
 import os
 import s3
 import tensorflow as tf
+
+import config
+import speech
 import utils
 import video
+
 
 tf.keras.utils.disable_interactive_logging()
 
@@ -17,9 +20,14 @@ def process_video_from_s3(id: str, bucket_name: str, key: str):
     f.close()
 
 def process_video(id: str, src: str):
+    audio_path = config.VIDEO_DIR + f"/{id}.wav"
+
+    video.extract_audio(src, audio_path)
+    speech.transcribe(id, audio_path)
+
     v = video.from_source(src)
 
-    preview_size = 640
+    preview_size = 720
     preview_name = f"/{id}_{preview_size}.mp4"
     preview_path = config.VIDEO_DIR + preview_name
 

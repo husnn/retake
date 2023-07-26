@@ -52,6 +52,6 @@ yarn.lock
 *.sqlite
 
 # Python
-.venv
+venv
 __pycache__
 runtime
