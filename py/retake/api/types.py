@@ -52,4 +52,5 @@ class VideoResult:
     id: str
     original_file: Source
     clips: list[Clip]
-    reason: Optional[FailureReason]
+    length_minutes: int
+    failure_reason: Optional[FailureReason]

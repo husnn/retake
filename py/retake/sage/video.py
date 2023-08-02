@@ -5,8 +5,6 @@ import shutil
 import subprocess
 
 from dataclasses import dataclass
-from deepface import DeepFace
-from deepface.commons import distance
 
 from retake.sage import config
 from .types import FaceData, FrameData
@@ -159,6 +157,9 @@ def merge_all(src: list[str], dst: str):
 
 def track_faces(v: Video) -> list[FrameData]:
    import tensorflow as tf
+   
+   from deepface import DeepFace
+   from deepface.commons import distance
    
    print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
    

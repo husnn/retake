@@ -19,6 +19,10 @@ def download_file_to_path(bucket_name: str, key: str, dst: str):
 
 
 def upload_file(src: str, bucket_name: str, key: str, content_type = None):
+    from .config import USE_S3_STORE
+
+    if not USE_S3_STORE: return
+
     args = dict()
 
     if content_type is not None:

@@ -12,7 +12,7 @@ DEBUG = os.getenv("DEBUG", False)
 FACE_DETECTION_MODEL = "Facenet"
 FACE_DETECTION_METHOD = "mtcnn"
 
-USE_S3_STORE = False
+USE_S3_STORE = not IS_DEV
 S3_VIDEOS = os.getenv("S3_VIDEOS_NAME", "")
 
 BASE_DIR = os.getenv("BASE_DIR", os.path.dirname(__file__) + "/runtime")

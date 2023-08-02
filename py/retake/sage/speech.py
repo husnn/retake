@@ -1,8 +1,6 @@
 import json
 import whisperx
 
-import tensorflow as tf
-
 from typing import cast, Iterator
 
 from retake.sage import config
@@ -14,6 +12,8 @@ model = whisperx.load_model(config.WHISPERX_MODEL, device,
 
 
 def transcribe(video_id: str, src: str):
+  from .s3 import upload_file
+
   print(f"transcribe: Transcribing audio using {device}.")
 
   audio = whisperx.load_audio(src)
@@ -38,13 +38,22 @@ def transcribe(video_id: str, src: str):
 
   out_path_base = config.VIDEO_DIR + f"/{video_id}"
 
-  with open(out_path_base + "/speech_data.json", "w") as f:
+  speech_data_out = out_path_base + "/speech_data.json"
+  transcript_out = out_path_base + "/transcript.srt"
+
+  with open(speech_data_out, "w") as f:
     f.write(json.dumps(result))
     f.flush()
 
-  with open(out_path_base + "/transcript.srt", "w") as f:
+  with open(transcript_out, "w") as f:
     for i, s in enumerate(result["segments"]):
       print(f"{i}\n{s['start']} --> {s['end']}\n{s['text'].strip()}\n", file=f)
     f.flush()
+
+  upload_file(speech_data_out, config.S3_VIDEOS, speech_data_out.lstrip(config.BASE_DIR), "application/json")
+  print(f"transcribe: Uploaded speech data to S3.")
+
+  upload_file(transcript_out, config.S3_VIDEOS, transcript_out.lstrip(config.BASE_DIR), "text/plain")
+  print(f"transcribe: Uploaded transcript to S3.")
 
   return result

@@ -34,6 +34,7 @@ def transcribe_video(id: str, src: str):
 
 def get_highlights(video_id: str, video_title: str, transcript_path: Optional[str] = None):
   import openai
+  from .s3 import upload_file
 
   print(f"get_highlights: Starting for video '{video_id}'.")
 
@@ -216,7 +217,9 @@ def get_highlights(video_id: str, video_title: str, transcript_path: Optional[st
         print(f"Error getting completion. {e}")
         time.sleep(3)
 
-  with open(config.VIDEO_DIR + f"/{video_id}/highlights.json", "w") as f:
+  highlights_out = config.VIDEO_DIR + f"/{video_id}/highlights.json"
+
+  with open(highlights_out, "w") as f:
     from dataclasses import asdict
     from json import dumps
 
@@ -227,6 +230,9 @@ def get_highlights(video_id: str, video_title: str, transcript_path: Optional[st
     f.write(dumps(d))
     f.flush()
 
+  upload_file(highlights_out, config.S3_VIDEOS, highlights_out.lstrip(config.BASE_DIR), "application/json")
+  print(f"get_highlights: Uploaded highlights to S3.")
+  
   print(f"get_highlights: Done.")
 
   return highlights
@@ -234,6 +240,7 @@ def get_highlights(video_id: str, video_title: str, transcript_path: Optional[st
 
 def generate_clips(id: str, segments: Optional[list[Segment]] = None):
   from . import video
+  from .s3 import upload_file
 
   print(f"generate_clips: Starting for video '{id}'.")
 
@@ -280,6 +287,9 @@ def generate_clips(id: str, segments: Optional[list[Segment]] = None):
 
     print(f"generate_clips: Merged {len(clips)} clips. ID: {clip_id}.")
 
+    upload_file(clip_out, config.S3_VIDEOS, clip_out.lstrip(config.BASE_DIR), "video/mp4")
+    print(f"generate_clips: Uploaded clip to S3.")
+
     # [os.remove(c) for c in clips]
 
     v = video.from_source(clip_out)
@@ -292,7 +302,12 @@ def generate_clips(id: str, segments: Optional[list[Segment]] = None):
 
     print(f"generate_clips: Saved clip preview to {preview_out}.")
 
-    with open(video_dir + f"/clip_{clip_id}.json", "w") as f:
+    upload_file(preview_out, config.S3_VIDEOS, preview_out.lstrip(config.BASE_DIR), "video/mp4")
+    print(f"generate_clips: Uploaded clip preview to S3.")
+
+    frame_data_out = video_dir + f"/clip_{clip_id}.json"
+
+    with open(frame_data_out, "w") as f:
       from dataclasses import asdict
       from json import dumps
 
@@ -302,3 +317,6 @@ def generate_clips(id: str, segments: Optional[list[Segment]] = None):
 
       f.write(dumps(d))
       f.flush()
+
+    upload_file(frame_data_out, config.S3_VIDEOS, frame_data_out.lstrip(config.BASE_DIR), "application/json")
+    print(f"generate_clips: Uploaded frame data to S3.")

@@ -115,6 +115,7 @@ def get_video_file(id: str, src: Source) -> str:
     network_file_systems={BASE_DIR: volume},
     timeout=900, # 15 mins
     secrets=([
+        Secret.from_name("aws-modal"),
         Secret.from_name("hf-token")
     ])
 )
@@ -127,6 +128,7 @@ async def transcribe_video(id: str, src: str):
     network_file_systems={BASE_DIR: volume},
     timeout=600, # 10 mins
     secrets=([
+        Secret.from_name("aws-modal"),
         Secret.from_name("hf-token"),
         Secret.from_name("openai-secret")
     ])
@@ -143,6 +145,7 @@ async def get_highlights(id: str, title: str):
     network_file_systems={BASE_DIR: volume},
     timeout=600, # 10 mins
     secrets=([
+        Secret.from_name("aws-modal"),
         Secret.from_name("hf-token"),
         Secret.from_name("openai-secret")
     ])
@@ -173,8 +176,10 @@ async def process_video(id: str, src: Source, title: str, webhook_endpoint: Opti
     file_path = get_video_file(id, src)
 
     v = from_source(file_path)
-    if max_len_mins and (v.duration_ms / 1000) > max_len_mins:
-        result = VideoResult(id, src, [], FailureReason.TOO_LONG)
+    length_mins = int(v.duration_ms / 1000 / 60)
+
+    if max_len_mins is not None and length_mins > max_len_mins:
+        result = VideoResult(id, src, [], length_mins, FailureReason.TOO_LONG)
 
         if webhook_endpoint:
             requests.post(webhook_endpoint, asdict(result))
@@ -207,6 +212,7 @@ def compile_result(id: str) -> VideoResult:
     import json
     from .types import SingleAlignedSegment
 
+    from retake.sage.video import from_source
     from retake.sage.config import VIDEO_DIR
 
     video_dir = VIDEO_DIR + f"/{id}"
@@ -220,6 +226,8 @@ def compile_result(id: str) -> VideoResult:
 
     if not video_file:
         raise Exception("Video file does not exist.")
+    
+    v = from_source(video_file)
 
     result = VideoResult(
         id=id,
@@ -228,7 +236,8 @@ def compile_result(id: str) -> VideoResult:
             uri=video_file.lstrip(BASE_DIR)
         ),
         clips=[],
-        reason=None
+        length_minutes=0,
+        failure_reason=None
     )
 
     speech_segments: list[SingleAlignedSegment] = []
