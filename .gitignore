@@ -52,6 +52,7 @@ yarn.lock
 *.sqlite
 
 # Python
-venv
-__pycache__
-runtime
+venv/
+__pycache__/
+runtime/
+*.egg-info/

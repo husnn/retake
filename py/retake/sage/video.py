@@ -1,6 +1,5 @@
 import cv2
 import ffmpeg
-import numpy as np
 import pandas as pd
 import shutil
 import subprocess
@@ -9,7 +8,8 @@ from dataclasses import dataclass
 from deepface import DeepFace
 from deepface.commons import distance
 
-import config
+from retake.sage import config
+from .types import FaceData, FrameData
 
 
 @dataclass
@@ -17,15 +17,10 @@ class Video:
   src: str
   width: int
   height: int
+  fps: int
   duration_ms: int
 
-def extract_audio(src: str, dst: str):
-  ffmpeg \
-      .input(src) \
-      .output(dst, format='wav', acodec='pcm_s16le', ac=1, ar='16k') \
-      .overwrite_output() \
-      .run()
-  
+
 def downscale(video: Video, dst: str, size_px: int):
    w = None
    h = None
@@ -44,29 +39,29 @@ def downscale(video: Video, dst: str, size_px: int):
       w = -2
       h = size_px
 
-   if config.CUDA_AVAILABLE:
-      cmd = [
-         "ffmpeg",
-         "-y",
-         "-hwaccel",
-         "cuda",
-         "-i",
-         video.src,
-         "-vf",
-         f"scale={w}:{h}",
-         "-c:a",
-         "copy",
-         "-c:v",
-         "h264_nvenc",
-         dst
-      ]
+   # if config.CUDA_AVAILABLE:
+   #    cmd = [
+   #       "ffmpeg",
+   #       "-y",
+   #       "-hwaccel",
+   #       "cuda",
+   #       "-i",
+   #       video.src,
+   #       "-vf",
+   #       f"scale={w}:{h}",
+   #       "-c:a",
+   #       "copy",
+   #       "-c:v",
+   #       "h264_nvenc",
+   #       dst
+   #    ]
 
-      result = subprocess.run(cmd, stderr=subprocess.PIPE)
+   #    result = subprocess.run(cmd, stderr=subprocess.PIPE)
 
-      if result.returncode != 0:
-         raise Exception(result.stderr)
+   #    if result.returncode != 0:
+   #       raise Exception(result.stderr)
       
-      return
+   #    return
 
    v = ffmpeg.input(video.src) \
       .video \
@@ -77,7 +72,8 @@ def downscale(video: Video, dst: str, size_px: int):
    ffmpeg \
       .output(v, a, dst) \
       .overwrite_output() \
-      .run()
+      .run(capture_stdout=True, capture_stderr=True)
+
 
 def from_source(src: str) -> Video:
    cmd = [
@@ -87,7 +83,7 @@ def from_source(src: str) -> Video:
       "-select_streams",
       "v",
       "-show_entries",
-      "stream=width,height,duration",
+      "stream=width,height,r_frame_rate,duration",
       "-of",
       "default=noprint_wrappers=1:nokey=1",
       src
@@ -101,19 +97,74 @@ def from_source(src: str) -> Video:
    
    info = result.stdout.split('\n')
    
-   if len(info) != 4:
+   if len(info) != 5:
       raise Exception("Unexpected video stream output")
+   
+   fps = info[2].split("/")
+   if len(fps) > 1 and float(fps[1]) > 0:
+      fps = float(fps[0])/float(fps[1])
+   else:
+      fps = float(fps[0])
    
    return Video(
       src=src,
       width=int(info[0]),
       height=int(info[1]),
-      duration_ms=int(float(info[2]) * 1000)
+      fps=int(fps),
+      duration_ms=int(float(info[3]) * 1000)
    )
 
-def track_faces(v: Video):
+
+def trim(src: str, dst: str, start: float, end: float):
+   PTS = "PTS-STARTPTS"
+
+   v = (
+      ffmpeg.input(src)
+         .trim(start=start, end=end)
+         .setpts(PTS)
+   )
+   a = (
+      ffmpeg.input(src)
+         .filter("atrim", start=start, end=end)
+         .filter("asetpts", PTS)
+   )
+
+   concat = ffmpeg.concat(v, a, v=1, a=1)
+
+   (
+      ffmpeg
+      .output(concat, dst)
+      .overwrite_output()
+      .run(capture_stdout=True, capture_stderr=True)
+   )
+
+
+def merge_all(src: list[str], dst: str):
+   av = []
+
+   for f in src:
+      v = ffmpeg.input(f).video
+      a = ffmpeg.input(f).audio
+      av.append(v)
+      av.append(a)
+
+   (
+      ffmpeg
+      .concat(*av, v=1, a=1)
+      .output(dst)
+      .overwrite_output()
+      .run(capture_stdout=True, capture_stderr=True)
+   )
+
+
+def track_faces(v: Video) -> list[FrameData]:
+   import tensorflow as tf
+   
+   print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+   
    cap = cv2.VideoCapture(v.src)
 
+   face_data: list[FrameData] = []
    face_size = (224, 224)
 
    known_faces = []
@@ -234,6 +285,17 @@ def track_faces(v: Video):
 
             current_faces.append([face_id, [x, y]])
 
+            fd = FaceData(
+               str(face_id),
+               x, y,
+               w, h
+            )
+
+            if face_data and face_data[-1].frame == frame_count:
+               face_data[-1].faces.append(fd)
+            else:
+               face_data.append(FrameData(frame_count, frame_count / v.fps, [fd]))
+
             if config.IS_DEV:
                frame = cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
                frame = cv2.putText(
@@ -250,7 +312,7 @@ def track_faces(v: Video):
 
       lf_faces = current_faces
 
-      if config.IS_DEV:
+      if config.IS_DEV and config.DEBUG:
          cv2.imshow('frame', frame)
          if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -258,3 +320,5 @@ def track_faces(v: Video):
 
    cap.release()
    cv2.destroyAllWindows()
+
+   return face_data

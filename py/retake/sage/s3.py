@@ -3,15 +3,20 @@ import tempfile
 
 from botocore.errorfactory import ClientError
 
-
 s3_client = boto3.client('s3')
 s3 = boto3.resource('s3')
+
 
 def download_file(bucket_name: str, key: str):
     f = tempfile.NamedTemporaryFile(mode="wb")
     s3_client.download_fileobj(bucket_name, key, f)
     f.flush()
     return f
+
+
+def download_file_to_path(bucket_name: str, key: str, dst: str):
+    s3_client.download_file(bucket_name, key, dst)
+
 
 def upload_file(src: str, bucket_name: str, key: str, content_type = None):
     args = dict()
@@ -27,6 +32,7 @@ def upload_file(src: str, bucket_name: str, key: str, content_type = None):
     )
 
     return f"s3://{bucket_name}/{key}"
+
 
 def file_exists(bucket_name: str, key: str):
     try:
