@@ -11,6 +11,7 @@ T = TypeVar('T')
 @dataclass
 class Job(Generic[T]):
     id: str
+    call_id: Optional[str]
     result: Optional[T]
     completed: bool
     created_at: Optional[datetime]
@@ -52,5 +53,4 @@ class VideoResult:
     id: str
     original_file: Source
     clips: list[Clip]
-    length_minutes: int
     failure_reason: Optional[FailureReason]

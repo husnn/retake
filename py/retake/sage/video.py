@@ -7,16 +7,7 @@ import subprocess
 from dataclasses import dataclass
 
 from retake.sage import config
-from .types import FaceData, FrameData
-
-
-@dataclass
-class Video:
-  src: str
-  width: int
-  height: int
-  fps: int
-  duration_ms: int
+from .types import FaceData, FrameData, Video
 
 
 def downscale(video: Video, dst: str, size_px: int):
@@ -182,7 +173,7 @@ def track_faces(v: Video) -> list[FrameData]:
          break
 
       # Only process every x frames.
-      if frame_count % 10 != 0:
+      if frame_count % 30 != 0:
          continue
 
       current_faces = []

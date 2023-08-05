@@ -24,6 +24,7 @@ export class AuthService {
 
       let user = new User({
         id: await generateUserId()(),
+        dateCreated: new Date(),
         email,
         lastLogin: new Date(),
         lastLoginIP: ip

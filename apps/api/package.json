@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@types/app-root-path": "^1.2.4",
+    "@types/aws-sdk": "^2.7.0",
     "@types/axios": "^0.14.0",
     "@types/connect-redis": "^0.0.18",
     "@types/cors": "^2.8.12",
@@ -27,6 +28,8 @@
     "typescript": "^5.1.6"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.209.0",
+    "@aws-sdk/s3-request-presigner": "^3.209.0",
     "@retake/core": "workspace:^0.0.1",
     "@retake/logger": "workspace:^0.0.1",
     "@retake/postgres": "workspace:^0.0.1",

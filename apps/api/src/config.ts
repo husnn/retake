@@ -4,7 +4,8 @@ const config = {
     host: process.env.HOST || '0.0.0.0',
     port: parseInt(process.env.PORT || '5000'),
     clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
-    isSecure: process.env.HTTP_PROTOCOL === 'https'
+    isSecure: process.env.HTTP_PROTOCOL === 'https',
+    publicUrl: process.env.PUBLIC_URL
   },
   auth: {
     secret: process.env.AUTH_SECRET || 's3creTi5siM0',
@@ -16,7 +17,18 @@ const config = {
   },
   redis: {
     url: process.env.REDIS_URL || 'redis://localhost:6379'
+  },
+  s3: {
+    videoBucket: {
+      name: process.env.VIDEO_S3_NAME,
+      region: process.env.VIDEO_S3_REGION
+    }
+  },
+  sage: {
+    apiUrl: process.env.SAGE_API_URL || 'http://localhost:9000'
   }
 };
+
+export const webhookEndpoint = () => `${config.app.publicUrl}/v1/webhook`;
 
 export default config;

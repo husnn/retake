@@ -1,3 +1,5 @@
+import { customAlphabet } from 'nanoid';
+
 export const randomIntBetween = (min = 0, max = 999999): number =>
   Math.floor(Math.random() * (max - min + 1) + min);
 
@@ -17,3 +19,8 @@ export const randomNumericString = (length = 32): string => {
 
   return result.join('');
 };
+
+const alphanumeric =
+  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+export const generateVideoId = () => `v_${customAlphabet(alphanumeric, 16)}`;

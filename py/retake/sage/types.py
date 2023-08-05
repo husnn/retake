@@ -3,6 +3,15 @@ from dataclasses_json import DataClassJsonMixin
 
 
 @dataclass
+class Video:
+  src: str
+  width: int
+  height: int
+  fps: int
+  duration_ms: int
+
+  
+@dataclass
 class Segment(DataClassJsonMixin):
   title: str
   duration: float

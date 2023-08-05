@@ -1,4 +1,5 @@
 import { CurrentUserDTO } from '../dto';
+import S3SignedURL from './S3SignedURL';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT';
 
@@ -46,3 +47,26 @@ export interface SignoutRequest extends Request {
   method: 'POST';
 }
 export interface SignoutResponse extends Response {}
+
+export interface CreateVideoRequest extends Request {
+  method: 'POST';
+  body: {
+    fileName: string;
+    fileType: string;
+    fileSize: number;
+  };
+}
+export interface CreateVideoResponse
+  extends Response<{ id: string; uploadUrl: S3SignedURL }> {}
+
+export interface ProcessVideoRequest extends Request {
+  method: 'POST';
+}
+export interface ProcessVideoResponse extends Response {}
+
+export interface JobStatusRequest extends Request {
+  method: 'GET';
+}
+export interface JobStatusResponse extends Response {
+  body: object;
+}

@@ -7,6 +7,7 @@
     "eslint:fix": "eslint --fix --ext .js,.jsx,.ts,.tsx .",
     "build": "tsc --build tsconfig.build.json",
     "watch": "pnpm build --watch",
+    "shared": "pnpm --filter @retake/shared",
     "core": "pnpm --filter @retake/core",
     "api": "pnpm --filter @retake/api",
     "web": "pnpm --filter @retake/web",

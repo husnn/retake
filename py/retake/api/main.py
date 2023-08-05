@@ -6,7 +6,7 @@ from modal.call_graph import InputInfo, InputStatus
 from typing import cast, Optional
 
 from retake.api.types import Clip, Job, Source, SourceType, VideoResult
-from retake.sage.types import FrameData, Segment
+from retake.sage.types import FrameData, Segment, Video
 
 BASE_DIR = "/runtime"
 CACHE_DIR = BASE_DIR + "/cache"
@@ -143,7 +143,7 @@ async def get_highlights(id: str, title: str):
     cpu=4,
     gpu="T4",
     network_file_systems={BASE_DIR: volume},
-    timeout=600, # 10 mins
+    timeout=900, # 15 mins
     secrets=([
         Secret.from_name("aws-modal"),
         Secret.from_name("hf-token"),
@@ -161,30 +161,32 @@ async def generate_clip(id: str, segment: Segment):
 
 @stub.function(
     network_file_systems={BASE_DIR: volume},
+    timeout=300, # 5m
+    secrets=([
+        Secret.from_name("aws-modal")
+    ])
+)
+async def get_video(id: str, src: Source) -> Video:
+    from retake.sage.video import from_source
+
+    file_path = get_video_file(id, src)
+
+    return from_source(file_path)
+
+
+@stub.function(
+    network_file_systems={BASE_DIR: volume},
     timeout=3600, # 1h
     secrets=([
         Secret.from_name("aws-modal")
     ])
 )
-async def process_video(id: str, src: Source, title: str, webhook_endpoint: Optional[str], max_len_mins: Optional[int]):
+async def process_video(id: str, src: Source, title: str, job_id: str, webhook_endpoint: Optional[str]):
     import requests
-    from .types import VideoResult, FailureReason
-    from modal.functions import gather
+    from modal.functions import gather, FunctionHandle
     from dataclasses import asdict
-    from retake.sage.video import from_source
 
     file_path = get_video_file(id, src)
-
-    v = from_source(file_path)
-    length_mins = int(v.duration_ms / 1000 / 60)
-
-    if max_len_mins is not None and length_mins > max_len_mins:
-        result = VideoResult(id, src, [], length_mins, FailureReason.TOO_LONG)
-
-        if webhook_endpoint:
-            requests.post(webhook_endpoint, asdict(result))
-
-        return result
 
     transcribe_video.call(id, file_path)
     highlights = get_highlights.call(id, title)
@@ -199,7 +201,11 @@ async def process_video(id: str, src: Source, title: str, webhook_endpoint: Opti
 
     if webhook_endpoint:
         try:
-            requests.post(webhook_endpoint, asdict(result))
+            requests.post(webhook_endpoint, {
+                "operation": "process_video",
+                "success": True,
+                "jobId": job_id
+            })
         except Exception as e:
             print(f"process_video: Webhook error: {e}")
 
@@ -236,7 +242,6 @@ def compile_result(id: str) -> VideoResult:
             uri=video_file.lstrip(BASE_DIR)
         ),
         clips=[],
-        length_minutes=0,
         failure_reason=None
     )
 
@@ -264,11 +269,11 @@ def compile_result(id: str) -> VideoResult:
             timeranges=s.timeranges,
             file=Source(
                 type=SourceType.S3,
-                uri=f"/videos/{clip_name}.mp4"
+                uri=f"videos/{clip_name}.mp4"
             ),
             preview_file=Source(
                 type=SourceType.S3,
-                uri=f"/videos/{clip_name}_preview.mp4"
+                uri=f"videos/{clip_name}_preview.mp4"
             ),
             frame_data=[],
             speech_data=[]
@@ -318,17 +323,18 @@ def compile_result(id: str) -> VideoResult:
     return result
 
 
-def save_job(call_id: str) -> Job:
+def save_job(job_id, call_id: str) -> Job:
     jobs = container_app["jobs"]
 
     job = Job(
-        id=call_id,
+        id=job_id,
+        call_id=call_id,
         result=None,
         completed=False,
         created_at=datetime.now(timezone.utc)
     )
 
-    cast(Dict, jobs)[call_id] = job
+    cast(Dict, jobs)[job_id] = job
 
     return job
 
@@ -341,38 +347,48 @@ def get_children(i: InputInfo) -> list[InputInfo]:
     return nodes
 
 
-def job_status(call_id: str) -> Job:
-    job: Optional[Job] = cast(Dict, container_app["jobs"])[call_id]
-    if job and job.completed:
+def job_status(job_id: str) -> Job:
+    jobs = container_app["jobs"]
+
+    job: Optional[Job] = cast(Dict, jobs)[job_id]
+    if not job:
+        return Job(
+            id="not_found",
+            call_id=None,
+            result=None,
+            completed=False,
+            created_at=None
+        )
+    
+    if job.completed:
         return job
 
     from modal.functions import FunctionCall
 
     try:
-        call = FunctionCall.from_id(call_id)
+        call = FunctionCall.from_id(cast(str, job.call_id))
 
         try:
             result = call.get(timeout=0.1)
 
-            created_at = getattr(job, "created_at", None)
-
             job = Job(
-                id=call_id,
+                id=job_id,
+                call_id=call.object_id,
                 result=result,
                 completed=False,
-                created_at=created_at
+                created_at=job.created_at
             )
 
             graph = call.get_call_graph()
 
             try:
                 tasks = get_children(graph[0])
-                done = sum(1 for t in tasks if t.status == InputStatus.SUCCESS)
+                done = sum(1 for t in tasks if t.status != InputStatus.PENDING)
                 job.completed = done >= len(tasks)
             except IndexError:
                 pass
 
-            cast(Dict, container_app["jobs"])[call_id] = job
+            cast(Dict, container_app["jobs"])[job_id] = job
 
             return job
         except TimeoutError:
@@ -380,11 +396,4 @@ def job_status(call_id: str) -> Job:
     except:
         pass
 
-    if job: return job
-
-    return Job(
-        id="not_found",
-        result=None,
-        completed=False,
-        created_at=None
-    )
+    return job

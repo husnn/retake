@@ -1,14 +1,32 @@
 import express, { Application, Router } from 'express';
 
-import { AuthService } from '@retake/core';
+import {
+  AuthService,
+  BillingService,
+  S3Service,
+  SageService,
+  VideoService
+} from '@retake/core';
 import logger from '@retake/logger';
-import { UserRepository } from '@retake/postgres';
+import {
+  BalanceRepository,
+  ClipRepository,
+  EditRepository,
+  FileRepository,
+  JobRepository,
+  PaymentRepository,
+  RenderRepository,
+  UserRepository,
+  VideoRepository
+} from '@retake/postgres';
 import { authCookieName } from '@retake/shared';
 import cors from 'cors';
 import session from 'express-session';
 import { RedisClientType } from 'redis';
-import config from './config';
+import config, { webhookEndpoint } from './config';
 import AuthController from './controllers/AuthController';
+import VideoController from './controllers/VideoController';
+import WebhookController from './controllers/WebhookController';
 import errorHandler from './middleware/errorHandler';
 import requestLogger from './middleware/requestLogger';
 import initRoutes from './routes';
@@ -72,14 +90,44 @@ class App {
 
     app.use(requestLogger);
 
+    const balanceRepository = new BalanceRepository();
+    const clipRepository = new ClipRepository();
+    const editRepository = new EditRepository();
+    const fileRepository = new FileRepository();
+    const jobRepository = new JobRepository();
+    const paymentRepository = new PaymentRepository();
+    const renderRepository = new RenderRepository();
     const userRepository = new UserRepository();
+    const videoRepository = new VideoRepository();
 
     const authService = new AuthService(userRepository);
+    const billingService = new BillingService(
+      balanceRepository,
+      paymentRepository
+    );
+    const sageService = new SageService(config.sage.apiUrl, {
+      webhookUrl: webhookEndpoint()
+    });
+    const videoS3 = new S3Service(
+      config.s3.videoBucket.name,
+      config.s3.videoBucket.region
+    );
+    const videoService = new VideoService(
+      userRepository,
+      videoRepository,
+      fileRepository,
+      jobRepository,
+      sageService,
+      billingService,
+      videoS3
+    );
 
     const authController = new AuthController(authService);
+    const videoController = new VideoController(videoService);
+    const webhookController = new WebhookController(videoService);
 
     const router = Router();
-    initRoutes(router, authController);
+    initRoutes(router, authController, videoController, webhookController);
 
     app.use('/v1', router);
 

@@ -21,6 +21,14 @@ export abstract class Repository<T extends { id: ID }>
     return this.db.findBy({ id: In(ids) });
   }
 
+  find(query: Partial<T>): Promise<T[]> {
+    return this.db.findBy(query);
+  }
+
+  findOne(query: Partial<T>): Promise<T> {
+    return this.db.findOneBy(query);
+  }
+
   create(item: Partial<T>): Promise<T> {
     return this.db.save(item);
   }

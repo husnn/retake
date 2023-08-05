@@ -9,9 +9,8 @@ const UserSchema = new EntitySchema<User>({
       primary: true
     },
     dateCreated: {
-      type: 'timestamp',
-      name: 'date_created',
-      createDate: true
+      type: 'timestamptz',
+      name: 'date_created'
     },
     email: {
       type: 'text',
@@ -34,7 +33,7 @@ const UserSchema = new EntitySchema<User>({
       nullable: true
     },
     lastLogin: {
-      type: 'timestamp',
+      type: 'timestamptz',
       name: 'last_login',
       nullable: true
     },
